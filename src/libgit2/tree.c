@@ -536,7 +536,7 @@ static int git_treebuilder__write_with_buffer(
 
 		git_str_printf(buf, "%o ", entry->attr);
 		git_str_put(buf, entry->filename, entry->filename_len + 1);
-		git_str_put(buf, (char *)entry->oid.id, GIT_OID_SHA1_SIZE);
+		git_str_put(buf, (char *)entry->oid.id, bld->repo->oid_type);
 
 		if (git_str_oom(buf)) {
 			error = -1;

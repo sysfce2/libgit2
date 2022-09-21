@@ -361,12 +361,11 @@ static int dereference_object(git_object **dereferenced, git_object *obj)
 static int peel_error(int error, const git_oid *oid, git_object_t type)
 {
 	const char *type_name;
-	char hex_oid[GIT_OID_SHA1_HEXSIZE + 1];
+	char hex_oid[GIT_OID_MAX_HEXSIZE + 1];
 
 	type_name = git_object_type2string(type);
 
-	git_oid_fmt(hex_oid, oid);
-	hex_oid[GIT_OID_SHA1_HEXSIZE] = '\0';
+	git_oid_nfmt(hex_oid, GIT_OID_MAX_HEXSIZE + 1, oid);
 
 	git_error_set(GIT_ERROR_OBJECT, "the git_object of id '%s' can not be "
 		"successfully peeled into a %s (git_object_t=%i).", hex_oid, type_name, type);
