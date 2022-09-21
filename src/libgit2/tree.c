@@ -85,11 +85,17 @@ static git_tree_entry *alloc_entry(const char *filename, size_t filename_len, co
 	char *filename_ptr;
 	size_t tree_len;
 
+#ifdef GIT_EXPERIMENTAL_SHA256
+	size_t oid_size = git_oid_size(id->type);
+#else
+	size_t oid_size = GIT_OID_SHA1_SIZE;
+#endif
+
 	TREE_ENTRY_CHECK_NAMELEN(filename_len);
 
 	if (GIT_ADD_SIZET_OVERFLOW(&tree_len, sizeof(git_tree_entry), filename_len) ||
 	    GIT_ADD_SIZET_OVERFLOW(&tree_len, tree_len, 1) ||
-	    GIT_ADD_SIZET_OVERFLOW(&tree_len, tree_len, GIT_OID_SHA1_SIZE))
+	    GIT_ADD_SIZET_OVERFLOW(&tree_len, tree_len, oid_size))
 		return NULL;
 
 	entry = git__calloc(1, tree_len);
@@ -383,11 +389,12 @@ static int parse_mode(uint16_t *mode_out, const char *buffer, size_t buffer_len,
 	return 0;
 }
 
-int git_tree__parse_raw(void *_tree, const char *data, size_t size)
+int git_tree__parse_raw(void *_tree, const char *data, size_t size, git_oid_t oid_type)
 {
 	git_tree *tree = _tree;
 	const char *buffer;
 	const char *buffer_end;
+	long oid_size = git_oid_size(oid_type);
 
 	buffer = data;
 	buffer_end = buffer + size;
@@ -414,7 +421,7 @@ int git_tree__parse_raw(void *_tree, const char *data, size_t size)
 		if ((filename_len = nul - buffer) == 0 || filename_len > UINT16_MAX)
 			return tree_parse_error("failed to parse tree: can't parse filename", NULL);
 
-		if ((buffer_end - (nul + 1)) < GIT_OID_SHA1_SIZE)
+		if ((buffer_end - (nul + 1)) < oid_size)
 			return tree_parse_error("failed to parse tree: can't parse OID", NULL);
 
 		/* Allocate the entry */
@@ -425,24 +432,24 @@ int git_tree__parse_raw(void *_tree, const char *data, size_t size)
 			entry->attr = attr;
 			entry->filename_len = (uint16_t)filename_len;
 			entry->filename = buffer;
-			git_oid__fromraw(&entry->oid, ((unsigned char *) buffer + filename_len + 1), GIT_OID_SHA1);
+			git_oid__fromraw(&entry->oid, ((unsigned char *) buffer + filename_len + 1), oid_type);
 		}
 
 		buffer += filename_len + 1;
-		buffer += GIT_OID_SHA1_SIZE;
+		buffer += git_oid_size(oid_type);
 	}
 
 	return 0;
 }
 
-int git_tree__parse(void *_tree, git_odb_object *odb_obj)
+int git_tree__parse(void *_tree, git_odb_object *odb_obj, git_oid_t oid_type)
 {
 	git_tree *tree = _tree;
 	const char *data = git_odb_object_data(odb_obj);
 	size_t size = git_odb_object_size(odb_obj);
 	int error;
 
-	if ((error = git_tree__parse_raw(tree, data, size)) < 0 ||
+	if ((error = git_tree__parse_raw(tree, data, size, oid_type)) < 0 ||
 	    (error = git_odb_object_dup(&tree->odb_obj, odb_obj)) < 0)
 		return error;
 
